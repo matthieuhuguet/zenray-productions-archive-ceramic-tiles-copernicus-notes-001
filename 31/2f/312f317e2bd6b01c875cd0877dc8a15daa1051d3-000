@@ -1,0 +1,190 @@
+# Texturing Copernicus (Houdini Substance Painter Like)
+
+Évaluation du 2026-09-10, Houdini 22.0.368. Le nom officiel est **Copernicus**. Le titre historique conserve une graphie non officielle uniquement comme trace de recherche. Cette documentation propose une architecture à valider ; elle ne constitue pas une intégration aux composants de production.
+
+## Décision proposée
+
+**Commencer par Copernicus pour le générateur de matériaux procéduraux de LouisianaBayou.** C'est le candidat natif le mieux adapté au besoin : fabriquer des cartes, les relier à la géométrie Houdini et exposer les réglages sous forme de HDA. SideFX recommande ce contexte pour remplacer les anciens COP2 et documente explicitement les correspondances avec Substance Designer. Ce choix reste une recommandation de workflow, pas le résultat d'un concours visuel contre Designer. [1][2]
+
+**Ne pas acheter Designer uniquement par crainte d'un plafond de qualité de Copernicus.** Les sources examinées ne démontrent pas un tel plafond pour du bois, de la peinture usée ou des matériaux architecturaux. En revanche, elles ne démontrent pas non plus que notre futur générateur atteindra une qualité AAA : aucun matériau artistique comparable n'a été produit dans les deux logiciels pendant cette évaluation.
+
+**Ne pas considérer Copernicus comme un remplacement complet de Painter sur ce Mac.** Le besoin décrit correspond principalement à Designer, qui construit des générateurs, tandis que Painter organise la peinture et les finitions d'un objet. Le nœud Houdini Texture Mask Paint est officiellement non pris en charge sur macOS. Cet écart concret pèse davantage que des comparaisons générales de bibliothèques. [3][4]
+
+L'économie visée est une licence Substance supplémentaire évitée, sous réserve d'une licence Houdini adaptée à la production commerciale. Copernicus est inclus dans les éditions Houdini listées par SideFX ; Apprentice demeure réservé aux projets non commerciaux. Aucun tarif ni droit de licence de cette installation n'est supposé. [5][6]
+
+## Ce que Houdini 22 apporte réellement
+
+La page commerciale fournie présente encore les nouveautés de Houdini 21. Pour décider sur Houdini 22, les notes de version et la documentation 22 sont les références utiles. Les nouveautés comprennent des générateurs de salissures, d'écorce et de rouille, ainsi que des opérations d'adjacence entre îlots UV. Ces dernières améliorent certains traitements aux coutures ; elles ne fabriquent pas le dépliage de l'objet. [7][8]
+
+Houdini 22 ajoute **Texture Material Library** : un réseau Copernicus fournit des textures aux entrées d'un matériau USD existant, avec possibilité de partager des cartes entre matériaux. Le matériau conserve son modèle d'éclairage ; Copernicus en alimente les images. C'est une réponse native pertinente au souhait de travailler directement sur les matériaux. [9]
+
+La documentation du plugin Unreal décrit maintenant deux voies : un HDA géométrique accompagné de son matériau, ou un HDA Copernicus qui produit des textures. Les paramètres restent éditables dans l'éditeur, puis les résultats peuvent être cuits et enregistrés. La compatibilité effective de la version du plugin installée avec le projet Unreal reste à tester. [10]
+
+## Comparaison utile pour ce projet
+
+| Critère | Copernicus dans Houdini 22 | Substance Designer et Painter |
+|---|---|---|
+| Générer un matériau répétable | Réseaux d'images, motifs, bruits, masques et HDA ; adéquation directe au besoin [1][2] | Designer est spécialisé dans les matériaux paramétriques [11] |
+| Réagir aux dimensions d'un bâtiment | Géométrie et textures peuvent partager les paramètres dans Houdini | Possible avec une organisation des échanges ; le graphe Designer ne connaît pas spontanément les pièces du HDA |
+| Distribuer un générateur | Bibliothèque HDA et intégrations Houdini Engine | SBSAR réutilisable dans les applications qui intègrent Substance [12] |
+| Automatiser | Le MCP existant exécute déjà HOM en mode isolé, preuve locale | Designer possède aussi une API Python ; l'automatisation n'est pas exclusive à Houdini [13] |
+| Peindre des détails à la main sur Mac | Texture Mask Paint non pris en charge ; autres approches à évaluer [3] | Painter dispose d'un workflow de matériaux intelligents et de masques [4] |
+| Changer les UV d'un objet peint | Il faut prévoir la stabilité ou la régénération des données | Painter reprojette, mais les pièces déplacées ou changements d'unités peuvent poser problème [14] |
+| Qualité finale | Non comparée sur un matériau artistique commun | Aucun avantage automatique de qualité démontré par cette étude |
+| Temps de préparation | Avantage attendu pour une bibliothèque intégrée aux HDA existants | Avantage possible si un graphe, une compétence ou un livrable SBSAR existe déjà |
+
+Designer ne doit pas être comparé à une ancienne version figée. Sa version 16 ajoute notamment Shape Splatter v2, des outils SDF 3D et la prise en charge native d'OpenPBR. Il reste un choix pertinent pour livrer des générateurs dans l'écosystème Substance. Son avantage ne se réduit donc pas au nombre de bruits disponibles. [11][12]
+
+L'API Python de Designer permet de l'automatiser. Le tutoriel Adobe consulté rattache Substance Automation Toolkit à l'offre Collection Enterprise ; ce point ne doit pas être confondu avec l'API intégrée à Designer ni extrapolé à tous les contrats actuels. Avant une automatisation hors interface, vérifier le droit d'accès exact aux outils nécessaires. [13][15]
+
+## Mesures sur les deux composants existants
+
+La scène ouverte est `LouisianaBayou.hip`. Les deux composants concernés sont `Component_Armature` et `Component_WoodFacade`. Le perron n'entre pas dans cet essai. Une copie des deux nœuds ouverts est exportée sans modifier leur géométrie, leurs paramètres ni la caméra. Les variations sont exécutées dans une autre session Houdini, sans interface.
+
+**Premier constat : les instances ouvertes ne correspondent pas aux définitions sauvegardées.** Les deux instances sont déverrouillées et `matchesCurrentDefinition()` renvoie faux. Leurs paramètres existent dans la scène, mais les définitions contenues dans les deux fichiers `.hda` ont une interface vide. Une instance neuve créée depuis chaque définition n'expose aucun paramètre. La tentative de régler `width` échoue donc. Cette observation ne prouve pas que tout le contenu interne est perdu ; elle prouve que ces bibliothèques ne reproduisent pas l'interface attendue.
+
+**Deuxième constat : aucun UV à la sortie des deux composants**, ni sur les points ni sur les sommets de faces. Leurs changements de dimensions fonctionnent, mais aucune correspondance entre image et surface n'est encore produite par ces sorties.
+
+| Essai isolé | Mesure géométrique | UV présents |
+|---|---|---|
+| Armature, largeur 4 puis 8 | Largeur hors tout 4,090 puis 8,090 unités | Non |
+| Armature, longueur 6 puis 12 | Longueur hors tout 6,090 puis 12,090 unités | Non |
+| Armature, section 0,09 puis 0,18 | Largeur hors tout 4,090 puis 4,180 unités | Non |
+| Façade, largeur 4 puis 8 | Largeur hors tout 4,099 puis 8,099 unités | Non |
+| Façade, longueur 6 puis 12 | Longueur hors tout 6,100 puis 12,100 unités | Non |
+| Façade, 28 puis 56 rangées | 440 puis 867 primitives, 488 puis 962 points | Non |
+
+Deux bases et six variations donnent huit états calculés. La variation de topologie de la façade démontre pourquoi des numéros de points ou de polygones ne doivent pas servir d'identifiants durables aux planches.
+
+### Essai d'application d'un matériau
+
+La chaîne testée est `SOP Import → Preview Material`, avec un `Checkerboard` Copernicus branché sur la couleur. Les huit sorties se calculent sans erreur et reçoivent `shop_materialpath`. **Aucune ne reçoit des UV par cette opération.** L'absence d'erreur de calcul ne signifie donc pas que la texture est correctement placée. La documentation Preview Material demande précisément des UV et recommande des tangentes MiKKT pour les normales. [16]
+
+Le nombre de primitives diffère après Preview Material, par exemple 3 692 avant et 4 327 après sur l'armature de base. Les points et l'emprise mesurés restent identiques ; la cause de cette différence de primitives n'est pas établie ici. Pour une future sortie de production, contrôler également la topologie après cette branche.
+
+Deux images de diagnostic 256 × 256 sont exportées, avec 12 puis 16 cases par ligne. Un lecteur d'image indépendant compte effectivement 12 puis 16 plages sur deux lignes de pixels. Un contrôle volontairement faux annonçant 13 cases pour l'image de 12 est rejeté. Les empreintes des deux bibliothèques HDA restent identiques avant et après les essais.
+
+Ces preuves établissent le calcul d'images paramétriques, la variation géométrique et l'affectation technique d'un matériau. **Le rendu 3D du matériau sur les composants, les veines orientées, les coutures, le déplacement, le baking complet et l'import Unreal ne sont pas validés.** Les deux damiers ne sont pas un matériau artistique ni un benchmark 4K.
+
+## Les UV peuvent-ils être gérés dans le HDA ?
+
+**Oui, comme fonctionnalité à construire. Actuellement, non.** Une texture ne décide pas seule comment entourer une poutre courbe ou un bardage coupé au toit. Le HDA géométrique doit fournir un repère et une politique de placement cohérents avec la fabrication de la pièce.
+
+Pour l'armature, la proposition est de produire les coordonnées pendant le balayage : distance parcourue le long de la poutre dans un axe UV, distance autour de sa section dans l'autre. Les arcs emploient leur longueur réelle, afin que les veines suivent la courbe. Les bouts des poutres reçoivent un traitement distinct de bois de bout. Il faut également préserver un identifiant de pièce avant fusion.
+
+Pour le bardage, la proposition est de construire des coordonnées locales par planche et par paroi, avant la coupe de toiture, puis de vérifier leur interpolation après le booléen et leur présence sur les faces extrudées. Les veines suivent la longueur de la planche. Un identifiant stable associe les variations à la pièce plutôt qu'à l'ordre final des polygones. Ces choix devront être vérifiés sur les onglets, les pignons et les nouvelles faces créées par extrusion.
+
+### Trois paramètres différents derrière « ça scale »
+
+| Intention | Comportement proposé |
+|---|---|
+| Agrandir le bâtiment sans agrandir les veines | Conserver l'échelle physique du matériau ; augmenter le nombre de répétitions |
+| Agrandir volontairement le motif | Modifier `pattern_scale`, indépendamment des dimensions du bâtiment |
+| Garder une décoration ajustée à une pièce | Utiliser un mode normalisé explicitement choisi, qui autorise l'étirement |
+
+Exemple de convention proposée : si une texture couvre 0,5 m le long d'une poutre, une poutre de 2 m utilise quatre répétitions et une poutre de 4 m en utilise huit. La convention d'unités du projet doit être confirmée avant de présenter ce calcul comme une mesure de la scène. Le modèle géométrique existant est mesuré ici en unités Houdini.
+
+La projection triplanaire peut servir de solution rapide pour une matière sans direction forte. Elle ne remplace pas automatiquement l'orientation du bois sur les arcs, ni le bois de bout. Les textures normales demandent aussi une transformation cohérente entre projections. Pour ces composants, des coordonnées construites avec les pièces sont préférables à une projection mondiale unique.
+
+Les textures répétables peuvent utiliser des UV superposés ou extérieurs à l'intervalle de 0 à 1. Un atlas unique, une carte de salissures propre au bâtiment ou des UV de lightmap ont d'autres contraintes : prévoir un jeu distinct si nécessaire. Un dépliage automatiquement recalculé peut changer la place de toutes les îles après ajout d'une planche ; « automatique » ne signifie pas « stable ».
+
+## Architecture HDA proposée
+
+La séparation sert à réutiliser un même bois sur plusieurs composants sans recopier son réseau. Les noms ci-dessous décrivent des modules proposés, encore inexistants ; ils ne constituent pas un catalogue validé.
+
+| Famille | Responsabilité | Paramètres ou données exposés |
+|---|---|---|
+| `Component_*` | Géométrie et coordonnées adaptées à chaque pièce | Dimensions existantes, `piece_id`, `uv`, direction du bois, groupes de faces |
+| `Material_Wood` | Générer le bois commun dans Copernicus | Graine, échelle physique, veines, nœuds, palette, rugosité, relief |
+| `Material_PaintedWood` | Réutiliser le bois sous une couche peinte, si ce deuxième besoin est confirmé | Couleur, couverture, écaillage, épaisseur de peinture |
+| `Surface_Weathering` | Ajouter les effets dépendant du bâtiment | Humidité, hauteur relative au sol, exposition, courbure, zones protégées |
+| Adaptateur matériau | Relier les cartes au shader choisi | Entrées USD ou paramètres du matériau Unreal, conventions de normales |
+| Export et contrôle | Produire les fichiers et vérifier leur contenu | Résolution, précision, chemins, espaces couleur, profil de destination |
+
+Le matériau commun contient les veines et variations réutilisables ; les coulures verticales, l'humidité près du sol et les traces aux contacts appartiennent à la couche dépendante de l'objet. Une texture répétée seule ferait se répéter également ces traces, y compris aux mauvais endroits.
+
+Le premier graphe artistique devrait rester limité à une seule famille : bois architectural, avec une référence visuelle choisie. Sa décomposition proposée est : structure des fibres, déformation du motif, nœuds et fissures, masques partagés, puis sorties PBR. Les masques communs assurent que couleur, rugosité et relief décrivent les mêmes fissures. Générer des bruits indépendants pour chaque carte donnerait des images plausibles séparément, mais une matière incohérente.
+
+La résolution d'aperçu est un paramètre global, l'essence et l'usure sont des paramètres de famille, les décalages et variations d'une planche sont des surcharges d'instance. Les dimensions du bâtiment ne doivent pas déclencher inutilement la régénération du bois répétable si seules ses coordonnées changent.
+
+## Sorties PBR et matériaux paramétriques
+
+Une carte contient des valeurs ; un shader détermine comment la lumière les utilise. Copernicus peut produire les cartes usuelles, mais « tous les matériaux PBR » ne signifie pas qu'une connexion universelle fonctionne sans adaptation dans tous les moteurs. Preview Material expose de nombreux canaux ; certaines fonctions, dont transmission et subsurface, sont indiquées comme propres à Karma dans son aide. [16]
+
+Le contrat de départ proposé comporte couleur de base, rugosité, métal, normale et hauteur ; l'occlusion et l'émission sont ajoutées si elles servent le matériau. Les valeurs de rugosité et de masque restent des données, sans conversion d'affichage. La couleur de base suit une conversion explicitement définie entre espace de travail et destination. La hauteur garde une amplitude physique distincte de la force de normale. Le bois nu et sa peinture ordinaire emploient normalement un comportement diélectrique, pas une carte métallique aléatoire.
+
+Pour Unreal, nommer et brancher les sorties selon le matériau parent réel. La documentation 22 reconnaît notamment `basecolor`, `roughness`, `metal`, `normal` et `height`. Attention : son entrée nommée `RMA` est décrite avec rouge = rugosité, vert = occlusion et bleu = métal. Ne pas la confondre avec un ORM dont rouge = occlusion, vert = rugosité, bleu = métal. Commencer avec des cartes séparées et vérifier le matériau généré évite cette ambiguïté. [10]
+
+Les réglages de teinte, de force de normale ou de rugosité peuvent rester des paramètres du shader. Les changements de structure du motif peuvent demander un nouveau calcul de texture. Le workflow Houdini Engine doit être envisagé comme un outil de fabrication dans l'éditeur, avec résultats enregistrés pour le jeu ; cette étude n'établit aucune exécution automatique du graphe Copernicus dans un jeu distribué. [10][17]
+
+## Maturité et limites
+
+**Les fonctions disponibles sont suffisantes pour justifier un essai de production ciblé. La fiabilité complète de notre chaîne reste à établir.** Les notes 22 confirment une extension active des outils, mais une liste de nœuds ne mesure ni les plantages, ni le temps de travail économisé, ni la qualité perçue. Les avertissements de bêta trouvés dans les documents 20.5 ne doivent pas être transposés automatiquement à 22 ; l'absence du mot dans une page récente ne constitue pas davantage une certification de stabilité. [7]
+
+Copernicus utilise OpenCL. Les gros réseaux et leurs résultats intermédiaires consomment de la mémoire GPU. SideFX décrit un calcul traditionnel favorable à l'interaction et un calcul compilé pouvant réutiliser le stockage pour réduire la mémoire ; les réseaux compilés ne prennent pas en charge les simulations. Le passage 1K vers 4K multiplie mathématiquement le nombre de pixels par seize, sans permettre d'en déduire exactement le temps de calcul. [18]
+
+Le Mac Apple Silicon est pris en charge par Houdini 22, mais il faut vérifier les sous-fonctions individuellement. La documentation matérielle distingue notamment les périphériques Karma XPU, limités au CPU et à NVIDIA OptiX, de l'accélération OpenCL de Copernicus. Un damier calculé sur ce Mac ne prouve pas un rendu Karma accéléré par le GPU Apple. [19]
+
+Le baking géométrique demande des UV et une convention de tangentes fiable. SideFX recommande une triangulation cohérente avec la destination et des coutures UV aux arêtes dures pour éviter certains défauts de normales. Les éléments mobiles ou séparables peuvent nécessiter des bakes indépendants. L'adjacence peut aider à traiter les coutures, mais ne dispense pas de ces contrôles. [8][20]
+
+Les fichiers SBS et SBSAR ne deviennent pas des HDA par simple changement d'extension. Aucun convertisseur natif général entre ces graphes n'est établi ici. Les échanges sûrs reposent sur les cartes exportées, ou sur chaque moteur procédural dans son intégration propre. Si un client exige un SBSAR éditable, Designer répond directement à cette exigence. [12]
+
+## Protocole proposé après validation
+
+1. Sauvegarder les définitions actuelles, puis intégrer aux bibliothèques les interfaces et contenus validés présents dans la scène. Preuve : une instance neuve dans une scène vide retrouve les paramètres et la géométrie, sans référence manquante.
+2. Ajouter le contrat de coordonnées à un seul composant. Preuve : un damier garde sa taille physique quand la longueur double, sans faces oubliées ; contrôler visuellement les courbes ou les onglets concernés.
+3. Construire le premier matériau de bois HDA. Preuve : couleur, rugosité, normale et hauteur se correspondent sur une même fissure, et plusieurs graines produisent des variations reproductibles.
+4. Appliquer le même matériau à l'autre composant. Preuve : une seule modification du matériau se propage aux deux, avec leurs orientations respectives.
+5. Ajouter les salissures liées à l'objet, seulement si elles sont demandées pour ce matériau. Preuve : une coulure reste verticale et l'humidité reste près du sol après changement de dimensions.
+6. Enregistrer, fermer et reconstruire la scène de test. Preuve : mêmes sorties pour les mêmes paramètres, sans dépendance cachée à la scène ouverte.
+7. Valider l'export et le rendu cible. Preuve : vraies cartes relues, conventions couleur et normales contrôlées, observation sous plusieurs éclairages, temps et mémoire mesurés à la résolution prévue.
+
+Un passage vers Designer se justifie si cette épreuve montre une limite qui empêche le résultat, si une livraison SBSAR est exigée, ou si une recette existante y réduit nettement le temps de production. Un besoin de peinture manuelle sur Mac peut justifier Painter séparément. Aucun achat n'est requis avant cette comparaison sur un matériau réel.
+
+## Place du MCP et des skills
+
+Le MCP existant suffit à inspecter les paramètres, instancier les composants, construire les réseaux et déclencher leurs calculs. Le langage naturel décrit l'intention, l'agent la traduit en paramètres ou en recette, Houdini calcule, puis un contrôle vérifie le résultat. **Le MCP ne garantit ni une compréhension artistique parfaite ni une qualité AAA par instruction seule.** La référence visuelle et la validation artistique restent nécessaires.
+
+La porte d'entrée reste `zenray-houdini`. Le présent document apporte les sources et le contrat proposé ; les scripts de diagnostic vivent dans `Houdini/Scripts/`. Une future recette artistique validée rejoindra `Houdini/Recipes/`, et sa définition HDA `Houdini/otls/`. Aucun nouveau serveur MCP ni grand catalogue d'outils n'est nécessaire pour cette étape.
+
+## Preuves locales et reproduction
+
+- Copie source : `Houdini/Tests/Copernicus/SourceSnapshot/components.cpio` et `snapshot.json`.
+- Mesures retenues : `Houdini/Tests/Copernicus/20260910T145007/measurements.json`.
+- Vérification indépendante : `Houdini/Tests/Copernicus/20260910T145007/verification.json`.
+- Scène isolée inspectable : `Houdini/Tests/Copernicus/20260910T145007/component_probe.hip`.
+- Images : `checker_12.png` et `checker_16.png`, dans ce même dossier.
+
+Depuis la racine Memory, avec `hython` de Houdini 22 et un Python disposant de Pillow :
+
+```sh
+hython Houdini/Scripts/probe_copernicus_components.py
+python3 Houdini/Scripts/verify_copernicus_probe.py Houdini/Tests/Copernicus/20260910T145007
+```
+
+Le générateur crée un dossier neuf et affiche son chemin. Le second appel ci-dessus vérifie la mesure conservée ; pour un nouvel essai, lui donner le dossier retourné. Le contrôle rouge est vérifié en annonçant volontairement 13 cases pour l'image de 12 dans une copie temporaire des mesures. Les essais exploratoires précédents sont conservés. Le verdict `probe_ok` porte sur la sonde, tandis que `uv_ready` et `visual_material_validation` restent faux.
+
+## Sources
+
+Toutes les pages sont consultées le 2026-09-10. Les aides SideFX citées sont celles de Houdini 22.0, sauf mention explicite. Les sources éditeur établissent les fonctionnalités documentées, pas une supériorité artistique mesurée.
+
+1. SideFX, [Introduction to Copernicus](https://www.sidefx.com/docs/houdini/copernicus/intro.html), framework et remplacement de COP2.
+2. SideFX, [Copernicus for Substance 3D Designer users](https://www.sidefx.com/docs/houdini/copernicus/substance_designer.html), concepts et correspondances.
+3. SideFX, [Texture Mask Paint](https://www.sidefx.com/docs/houdini/nodes/sop/texturemaskpaint.html), restriction macOS.
+4. Adobe, [Smart Materials and Masks](https://experienceleague.adobe.com/en/docs/substance-3d-painter/using/features/smart-materials-and-masks), Painter.
+5. SideFX, [Copernicus](https://www.sidefx.com/products/houdini/lookdev/copernicus/), page commerciale fournie et éditions disponibles.
+6. SideFX, [What is Houdini Apprentice?](https://www.sidefx.com/faq/question/apprentice-licenses/), usage non commercial.
+7. SideFX, [What's new Copernicus, Houdini 22](https://www.sidefx.com/docs/houdini/news/22/copernicus.html), nouveautés.
+8. SideFX, [Adjacency](https://www.sidefx.com/docs/houdini/copernicus/adjacency.html), traitement entre îlots UV.
+9. SideFX, [Texture Material Library](https://www.sidefx.com/docs/houdini/nodes/lop/texturemateriallibrary.html), nouveau nœud 22 et connexion aux matériaux USD.
+10. SideFX, [Copernicus with Unreal](https://www.sidefx.com/docs/houdini/unreal/copernicus.html), HDA COP, sorties et conventions du plugin.
+11. Adobe, [Designer 16.0](https://experienceleague.adobe.com/en/docs/substance-3d-designer/using/release-notes/version-16-0), sortie du 14 avril 2026, page mise à jour le 7 mai 2026.
+12. Adobe, [Publishing Substance 3D asset files](https://experienceleague.adobe.com/en/docs/substance-3d-designer/using/substance-graphs/publishing-substance-3d-asset-files-sbsar), SBSAR et intégrations.
+13. Adobe, [Scripting API reference](https://experienceleague.adobe.com/en/docs/substance-3d-designer/using/scripting/scripting-api-reference), API Python Designer.
+14. Adobe, [UV Reprojection](https://experienceleague.adobe.com/en/docs/substance-3d-painter/using/features/uv-reprojection), limites de la reprojection.
+15. Adobe, [Substance Automation Toolkit](https://www.adobe.com/learn/substance-3d-designer/web/substance-automation-toolkit), périmètre annoncé dans le tutoriel.
+16. SideFX, [Preview Material](https://www.sidefx.com/docs/houdini/nodes/cop/previewmaterial.html), UV, tangentes et canaux.
+17. SideFX, [Introduction to Houdini Engine for Unreal](https://www.sidefx.com/docs/houdini/unreal/intro.html), intégration à l'éditeur.
+18. SideFX, [Cooking](https://www.sidefx.com/docs/houdini/copernicus/cooking.html), OpenCL, cache et calcul compilé.
+19. SideFX, [H22 System Requirements](https://www.sidefx.com/Support/system-requirements/), Apple Silicon et périphériques Karma XPU.
+20. SideFX, [Bake Geometry Textures](https://www.sidefx.com/docs/houdini/nodes/cop/bakegeometrytextures.html), précautions de baking.
